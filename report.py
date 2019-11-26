@@ -113,7 +113,10 @@ class ReportCallback(callbacks.Callback):
 
 
         self.validate_epoch_end(verbose=1)
-
+        savedir = "./checkpoints/epoch/" + str(self.runtimestr) + "/" + str(epoch)
+        if not os.path.isdir(savedir):
+            os.makedirs(savedir)
+        save_model(self.model, name=savedir)
         if self.save:
             #check to see lowest wer/ler on prev values
             if(len(self.mean_wer_log)>2):

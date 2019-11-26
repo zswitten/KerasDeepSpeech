@@ -167,7 +167,7 @@ def main(args):
 
     report = K.function([input_data, K.learning_phase()], [y_pred])
     report_cb = ReportCallback(report, validdata, model, args.name, save=True)
-
+    report_cb.force_output = True
     cb_list.append(report_cb)
 
     model.fit_generator(generator=traindata.next_batch(),
