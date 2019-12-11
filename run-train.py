@@ -21,7 +21,7 @@ from keras.callbacks import TensorBoard
 from keras.optimizers import Adam, Nadam
 
 from data import combine_all_wavs_and_trans_from_csvs
-from generator import BatchGenerator
+from generator import BatchGenerator, BinaryBatchGenerator
 from model import *
 from report import ReportCallback
 from utils import load_model_checkpoint, save_model, MemoryCallback
@@ -62,11 +62,16 @@ def main(args):
 
     ## 2. init data generators
     print("Creating data batch generators")
-    traindata = BatchGenerator(dataframe=df_train,
-                              training=True, batch_size=args.batchsize, model_input_type=model_input_type)
-    validdata = BatchGenerator(dataframe=df_valid,
-                              training=False, batch_size=args.batchsize, model_input_type=model_input_type)
-
+    if args.model_arch != 7:
+        traindata = BatchGenerator(dataframe=df_train,
+                                  training=True, batch_size=args.batchsize, model_input_type=model_input_type)
+        validdata = BatchGenerator(dataframe=df_valid,
+                                  training=False, batch_size=args.batchsize, model_input_type=model_input_type)
+    else:
+        traindata = BinaryBatchGenerator(dataframe=df_train,
+                                  training=True, batch_size=args.batchsize, model_input_type=model_input_type)
+        validdata = BinaryBatchGenerator(dataframe=df_valid,
+                                  training=False, batch_size=args.batchsize, model_input_type=model_input_type)
 
 
 
@@ -167,7 +172,11 @@ def main(args):
         tb_cb = TensorBoard(log_dir='./tensorboard/{}/'.format(args.name), write_graph=False, write_images=True)
         cb_list.append(tb_cb)
 
-    y_pred = model.get_layer('ctc').input[0]
+    if args.model_arch == 7:
+        y_pred = model.get_layer('y_pred').output
+    else:
+        y_pred = model.get_layer('ctc').input[0]
+
     input_data = model.get_layer('the_input').input
 
     report = K.function([input_data, K.learning_phase()], [y_pred])

@@ -203,7 +203,7 @@ class BinaryBatchGenerator(object):
         self.feats_mean = 0
 
         self.set_of_all_int_outputs_used = None
-        self.maxlen = maxlen
+        self.maxlen = max_audio_len
 
         #Free up memory of unneeded data
         del dataframe
@@ -272,14 +272,13 @@ class BinaryBatchGenerator(object):
 
         source_str = np.array([l for l in batch_y_trans])
         inputs = {
-            'sound': X_data,
+            'the_input': X_data,
             'query_words': queries_words,
             'query': queries,
-            'label': labels,
             'source_str': source_str
         }
 
-        outputs = {'ctc': np.zeros([self.batch_size])}
+        outputs = {'y_pred': labels}
 
         return (inputs, outputs)
 

@@ -670,32 +670,47 @@ def binary_classifier(
     # First 3 FC layers
     init = random_normal(stddev=0.046875)
     #import pdb; pdb.set_trace()
-    x = TimeDistributed(
-        Dense(fc_size, name='fc1', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
-    )(input_data)  # >>(?, 778, 2048)
-    x = TimeDistributed(Dropout(dropout[0]))(x)
-    x = TimeDistributed(
-        Dense(fc_size, name='fc2', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
-    )(x)  # >>(?, 778, 2048)
-    x = TimeDistributed(Dropout(dropout[0]))(x)
-    x = TimeDistributed(
-        Dense(fc_size, name='fc3', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
-    )(x)  # >>(?, 778, 2048)
-    x = TimeDistributed(Dropout(dropout[0]))(x)
+    # x = Dense(
+    #     fc_size, name='fc1', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    # )(input_data)  # >>(?, 778, 2048)
+    # x = Dropout(dropout[0])(x)
+    # x = Dense(
+    #     fc_size, name='fc2', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    # )(x)  # >>(?, 778, 2048)
+    # x = Dropout(dropout[0])(x)
+    # x = Dense(
+    #     fc_size, name='fc3', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    # )(x)  # >>(?, 778, 2048)
+    # x = Dropout(dropout[0])(x)
 
-    # Layer 4 BiDirectional RNN
-    x = Bidirectional(LSTM(rnn_size, return_sequences=True, activation=clipped_relu, dropout=dropout[1],
-                                kernel_initializer='he_normal', name='birnn'))(x)
+    # # Layer 4 BiDirectional RNN
+    # x = Bidirectional(LSTM(rnn_size, return_sequences=True, activation=clipped_relu, dropout=dropout[1],
+    #                             kernel_initializer='he_normal', name='birnn'))(x)
 
-
-    # Layer 5+6 Time Dist Dense Layer & Softmax
-    # x = TimeDistributed(Dense(fc_size, activation=clipped_relu, kernel_initializer=init, bias_initializer=init))(x)
-    x = TimeDistributed(Dropout(dropout[2]))(x)
+    sound_model = Sequential()
+    sound_model.add(Dense(
+        fc_size, name='fc1', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    ))
+    sound_model.add(Dropout(dropout[0]))
+    sound_model.add(Dense(
+        fc_size, name='fc2', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    ))
+    sound_model.add(Dropout(dropout[0]))
+    sound_model.add(Dense(
+        fc_size, name='fc3', kernel_initializer=init, bias_initializer=init, activation=clipped_relu
+    ))
+    sound_model.add(Dropout(dropout[0]))
+    sound_model.add(
+        Bidirectional(LSTM(rnn_size, return_sequences=True, activation=clipped_relu, dropout=dropout[1],
+                                kernel_initializer='he_normal', name='birnn'))
+    )
+    sound_model.add(Flatten())
+    encoded_sound = sound_model(input_data)
     
     query = Input(shape=(max_query_len,), name='query')
     query_embed = Embedding(input_dim=len(char_map), output_dim=embedding_dim, input_length=max_query_len)(query)
-    from keras.layers import concatenate
-    merged = concatenate([x, query_embed])
+    query_encode = Flatten()(query_embed)
+    merged = concatenate([encoded_sound, query_encode])
     linear_regression = Dense(512)(merged)
     y_pred = Dense(
         1, name="y_pred", kernel_initializer=init, bias_initializer=init, activation="softmax"
