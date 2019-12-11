@@ -45,8 +45,8 @@ def main(args):
 
     #1. combine all data into 2 dataframes (train, valid)
     print("Getting data from arguments")
-    train_dataprops, df_train = combine_all_wavs_and_trans_from_csvs(args.train_files, sortagrad=args.sortagrad)
-    valid_dataprops, df_valid = combine_all_wavs_and_trans_from_csvs(args.valid_files, sortagrad=args.sortagrad)
+    df_train = combine_all_wavs_and_trans_from_csvs(args.train_files, sortagrad=args.sortagrad)
+    df_valid = combine_all_wavs_and_trans_from_csvs(args.valid_files, sortagrad=args.sortagrad)
 
 
     # check any special data model requirments e.g. a spectrogram
@@ -62,9 +62,9 @@ def main(args):
 
     ## 2. init data generators
     print("Creating data batch generators")
-    traindata = BatchGenerator(dataframe=df_train, dataproperties=train_dataprops,
+    traindata = BatchGenerator(dataframe=df_train,
                               training=True, batch_size=args.batchsize, model_input_type=model_input_type)
-    validdata = BatchGenerator(dataframe=df_valid, dataproperties=valid_dataprops,
+    validdata = BatchGenerator(dataframe=df_valid,
                               training=False, batch_size=args.batchsize, model_input_type=model_input_type)
 
 
@@ -122,6 +122,10 @@ def main(args):
         elif(args.model_arch == 6):
             # constrained model
             model = const(input_dim=26, fc_size=args.fc_size, rnn_size=args.rnn_size, output_dim=29)
+
+        elif args.model_arch == 7:
+            model = binary_classifier(input_dim=26, fc_size=args.fc_size, rnn_size=args.rnn_size)
+
         else:
             raise("model not found")
 
@@ -139,7 +143,8 @@ def main(args):
     else:
         raise "optimiser not recognised"
 
-    model.compile(optimizer=opt, loss=ctc)
+    if args.model_arch != 7:
+        model.compile(optimizer=opt, loss=ctc)
 
     ## 4. train
 
@@ -169,7 +174,6 @@ def main(args):
     report_cb = ReportCallback(report, validdata, model, args.name, save=True)
 
     cb_list.append(report_cb)
-
     model.fit_generator(generator=traindata.next_batch(),
                         steps_per_epoch=args.train_steps,
                         epochs=args.epochs,

@@ -92,15 +92,6 @@ def combine_all_wavs_and_trans_from_csvs(csvslist, sortagrad=True, createwordlis
     print("Words:", len(all_words))
     print("Vocab:", len(all_vocab))
 
-    dataproperties = {
-        'target': "timit+librispeech",
-        'num_classes': num_classes,
-        'all_words': all_words,
-        'all_vocab': all_vocab,
-        'max_trans_charlength': max_trans_charlength,
-        'max_intseq_length': max_intseq_length
-    }
-
     if sortagrad:
         df_final = df_final.sort_values(by='wav_filesize', ascending=True)
     else:
@@ -110,7 +101,7 @@ def combine_all_wavs_and_trans_from_csvs(csvslist, sortagrad=True, createwordlis
     del df_all
     del listcomb
 
-    return dataproperties, df_final
+    return df_final
 
 
 ##DATA CHECKS RUN ALL OF THESE
