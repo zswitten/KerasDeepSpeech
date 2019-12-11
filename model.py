@@ -4,10 +4,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 import keras.backend as K
-from keras.models import Model
-from keras.layers import Input
 from keras.layers import TimeDistributed
-from keras.layers import Dense
+from keras.layers import Dense, Embedding
 from keras.layers import LSTM
 from keras.layers import Bidirectional
 from keras.layers import Lambda
@@ -25,7 +23,6 @@ This file builds the models
 
 import numpy as np
 
-from keras import backend as K
 from keras.models import Model, Sequential
 from keras.layers.recurrent import SimpleRNN
 from keras.layers import Dense, Activation, Bidirectional, Reshape,Flatten, Lambda, Input,\
@@ -33,11 +30,12 @@ from keras.layers import Dense, Activation, Bidirectional, Reshape,Flatten, Lamb
 from keras.optimizers import SGD, adam
 from keras.layers import ZeroPadding1D, Convolution1D, ZeroPadding2D, Convolution2D, MaxPooling2D, GlobalMaxPooling2D
 from keras.layers import TimeDistributed, Dropout
-from keras.layers.merge import add  # , # concatenate BAD FOR COREML
-from keras.utils.conv_utils import conv_output_length
+from keras.layers.merge import add, concatenate
 from keras.activations import relu
 
 import tensorflow as tf
+
+from char_map import char_map
 
 def selu(x):
     # from Keras 2.0.6 - does not exist in 2.0.4
@@ -651,6 +649,60 @@ def build_ds5_no_ctc_and_xfer_weights(loaded_model, input_dim=161, fc_size=1024,
     y_pred = TimeDistributed(Dense(output_dim, name="y_pred", activation="softmax"))(x)
 
     model = Model(inputs=input_data, outputs=y_pred)
+
+    return model
+
+def binary_classifier(
+        input_dim=26, max_query_len=30, embedding_dim=32, fc_size=2048, rnn_size=512,
+        dropout=[0.1, 0.1, 0.1], max_audio_len=1000
+    ):
+    """
+    max_query_len must be the same as in BinaryBatchGenerator
+    max_audio_len must be the same as in BinaryBatchGenerator
+    """
+    from keras.utils.generic_utils import get_custom_objects
+    get_custom_objects().update({"clipped_relu": clipped_relu})
+    # K.set_learning_phase(1)
+
+    # Creates a tensor there are usually 26 MFCC
+    input_data = Input(name='the_input', shape=(max_audio_len, input_dim))  # >>(?, max_batch_seq, 26)
+
+    # First 3 FC layers
+    init = random_normal(stddev=0.046875)
+    #import pdb; pdb.set_trace()
+    x = TimeDistributed(
+        Dense(fc_size, name='fc1', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
+    )(input_data)  # >>(?, 778, 2048)
+    x = TimeDistributed(Dropout(dropout[0]))(x)
+    x = TimeDistributed(
+        Dense(fc_size, name='fc2', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
+    )(x)  # >>(?, 778, 2048)
+    x = TimeDistributed(Dropout(dropout[0]))(x)
+    x = TimeDistributed(
+        Dense(fc_size, name='fc3', kernel_initializer=init, bias_initializer=init, activation=clipped_relu)
+    )(x)  # >>(?, 778, 2048)
+    x = TimeDistributed(Dropout(dropout[0]))(x)
+
+    # Layer 4 BiDirectional RNN
+    x = Bidirectional(LSTM(rnn_size, return_sequences=True, activation=clipped_relu, dropout=dropout[1],
+                                kernel_initializer='he_normal', name='birnn'))(x)
+
+
+    # Layer 5+6 Time Dist Dense Layer & Softmax
+    # x = TimeDistributed(Dense(fc_size, activation=clipped_relu, kernel_initializer=init, bias_initializer=init))(x)
+    x = TimeDistributed(Dropout(dropout[2]))(x)
+    
+    query = Input(shape=(max_query_len,), name='query')
+    query_embed = Embedding(input_dim=len(char_map), output_dim=embedding_dim, input_length=max_query_len)(query)
+    from keras.layers import concatenate
+    merged = concatenate([x, query_embed])
+    linear_regression = Dense(512)(merged)
+    y_pred = Dense(
+        1, name="y_pred", kernel_initializer=init, bias_initializer=init, activation="softmax"
+    )(linear_regression)
+
+    model = Model(inputs=[input_data, query], outputs=y_pred)
+    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     return model
 
