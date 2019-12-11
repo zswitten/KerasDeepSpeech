@@ -1,4 +1,3 @@
-
 import numpy as np
 from numpy.lib.stride_tricks import as_strided
 from sklearn.utils import shuffle
@@ -20,10 +19,9 @@ from utils import text_to_int_sequence
 # Data batch generator, responsible for providing the data to fit_generator
 
 class BatchGenerator(object):
-    def __init__(self, dataframe, dataproperties, training, batch_size=16, model_input_type="mfcc"):
+    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc"):
         self.training_data = training
         self.model_input_type = model_input_type ##mfcc, mfcc-aubio, spectrogram, spectrogram-img
-        # self.aubio = False
         self.df = dataframe.copy()
         #['wav_filesize','transcript','wav_filename']
         self.wavpath = self.df['wav_filename'].tolist()
@@ -43,7 +41,6 @@ class BatchGenerator(object):
 
         #Free up memory of unneeded data
         del dataframe
-        del dataproperties
         self.df = None
         del self.df
 
@@ -123,12 +120,162 @@ class BatchGenerator(object):
         source_str = np.array([l for l in batch_y_trans])
 
 
-
         inputs = {
             'the_input': X_data,
             'the_labels': labels,
             'input_length': input_length,
             'label_length': label_length,
+            'source_str': source_str,
+        }
+
+        outputs = {'ctc': np.zeros([self.batch_size])}
+
+        return (inputs, outputs)
+
+    def next_batch(self):
+        while 1:
+            assert (self.batch_size <= len(self.wavpath))
+
+            if (self.cur_index + 1) * self.batch_size >= len(self.wavpath) - self.batch_size:
+
+                self.cur_index = 0
+
+                if(self.shuffling==True):
+                    print("SHUFFLING as reached end of data")
+                    self.genshuffle()
+
+            try:
+                ret = self.get_batch(self.cur_index)
+            except:
+                print("data error - this shouldn't happen - try next batch")
+                self.cur_index += 1
+                ret = self.get_batch(self.cur_index)
+
+            self.cur_index += 1
+
+            yield ret
+
+    def genshuffle(self):
+        self.wavpath, self.transcript, self.finish = shuffle(self.wavpath,
+                                                             self.transcript,
+                                                             self.finish)
+
+
+    def export_test_mfcc(self):
+        # this is used to export data e.g. into iOS
+
+        testset = next(self.next_batch())[0]
+        mfcc = testset['the_input'][0:self.batch_size]  ## export all mfcc's in batch #26 x 29 ?
+        words = testset['source_str'][0:self.batch_size]
+        labels = testset['the_labels'][0:self.batch_size]
+
+        print("exporting:", type(mfcc))
+        print(mfcc.shape)
+        print(words.shape)
+        print(labels.shape)
+
+        # we save each mfcc/words/label as it's own csv file
+        for i in range(0, mfcc.shape[0]):
+            np.savetxt('./Archive/test_spectro/test_spectro_{}.csv'.format(i), mfcc[i, :, :], delimiter=',')
+
+        print(words)
+        print(labels)
+
+        return
+
+class BinaryBatchGenerator(object):
+    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000):
+        self.training_data = training
+        self.model_input_type = model_input_type ##mfcc, mfcc-aubio, spectrogram, spectrogram-img
+        self.df = dataframe.copy()
+        #['wav_filesize','transcript','wav_filename']
+        self.wavpath = self.df['wav_filename'].tolist()
+        self.transcript = self.df['transcript'].tolist()
+        self.finish = self.df['wav_filesize'].tolist()
+        self.start = np.zeros(len(self.finish))
+        self.length = self.finish
+        self.shuffling = True
+
+        self.batch_size = batch_size
+        self.cur_index = 0
+
+        self.feats_std = 0
+        self.feats_mean = 0
+
+        self.set_of_all_int_outputs_used = None
+        self.maxlen = maxlen
+
+        #Free up memory of unneeded data
+        del dataframe
+        self.df = None
+        del self.df
+
+    def normalise(self, feature, eps=1e-14):
+        return (feature - self.feats_mean) / (self.feats_std + eps)
+
+    def get_batch(self, idx):
+
+        batch_x = self.wavpath[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_y_trans = self.transcript[idx * self.batch_size:(idx + 1) * self.batch_size]
+
+        try:
+            assert (len(batch_x) == self.batch_size)
+            assert (len(batch_y_trans) == self.batch_size)
+        except Exception as e:
+            print(e)
+            print(batch_x)
+            print(batch_y_trans)
+
+        # 1. X_data (the MFCC's for the batch)
+        if(self.model_input_type == "spectrogram"):
+            # 0. get the maximum time length of the batch
+            if self.maxlen:
+                max_val = self.maxlen
+            else:
+                x_val = [get_max_specto_time(file_name) for file_name in batch_x]
+                max_val = max(x_val)
+            # print("Max batch time value is:", max_val)
+            X_data = np.array([make_specto_shape(file_name, padlen=max_val) for file_name in batch_x])
+            assert (X_data.shape == (self.batch_size, max_val, 161))
+
+        elif(self.model_input_type == "mfcc-aubio"):
+            if self.maxlen:
+                max_val = self.maxlen
+            else:
+                x_val = [get_max_aubio(file_name) for file_name in batch_x]
+                max_val = max(x_val)
+            # print("Max batch time value is:", max_val)
+            X_data = np.array([make_aubio_shape(file_name, padlen=max_val) for file_name in batch_x])
+            # print(X_data.shape)
+            assert (X_data.shape == (self.batch_size, max_val, 26))
+
+        elif(self.model_input_type == "mfcc"):
+            # 0. get the maximum time length of the batch
+            if self.maxlen:
+                max_val = self.maxlen
+            else:
+                x_val = [get_max_time(file_name) for file_name in batch_x]
+                max_val = max(x_val)
+            # print("Max batch time value is:", max_val)
+
+            X_data = np.array([make_mfcc_shape(file_name, padlen=max_val) for file_name in batch_x])
+            assert (X_data.shape == (self.batch_size, max_val, 26))
+        # print("1. X_data shape:", X_data.shape)
+        # print("1. X_data:", X_data)
+        queries_words = [choose_query(transcript) for transcript in batch_y_trans]
+        labels = np.array([
+            query in transcript for query, transcript in zip(queries_words, batch_y_trans)
+        ])
+        max_query_len = 30
+        queries = np.array([get_intseq(query, max_query_len) for query in queries_words])
+
+
+        source_str = np.array([l for l in batch_y_trans])
+        inputs = {
+            'sound': X_data,
+            'query_words': queries_words,
+            'query': queries,
+            'label': labels,
             'source_str': source_str
         }
 
@@ -187,7 +334,17 @@ class BatchGenerator(object):
 
         return
 
-
+def choose_query(transcript, min_words=1, max_words=3, negative_ratio=0.5):
+    words = transcript.split()
+    num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
+    first_word = np.random.randint(len(words) - num_words + 1)
+    query_in = ' '.join(words[first_word:first_word + num_words])
+    if np.random.random() < negative_ratio:
+        return query_in
+    else:
+        query_out = list(query_in)
+        np.random.shuffle(query_out)
+        return ''.join(query_out)
 
 def get_normalise(self, k_samples=100):
     # todo use normalise from DS2 - https://github.com/baidu-research/ba-dls-deepspeech
