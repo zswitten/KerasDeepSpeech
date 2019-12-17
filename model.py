@@ -653,7 +653,7 @@ def build_ds5_no_ctc_and_xfer_weights(loaded_model, input_dim=161, fc_size=1024,
     return model
 
 def binary_classifier(
-        input_dim=26, max_query_len=30, embedding_dim=32, fc_size=2048, rnn_size=512,
+        input_dim=26, max_query_len=30, embedding_dim=16, fc_size=1024, rnn_size=512,
         dropout=[0.1, 0.1, 0.1], max_audio_len=1000
     ):
     """
@@ -711,7 +711,7 @@ def binary_classifier(
     query_embed = Embedding(input_dim=len(char_map), output_dim=embedding_dim, input_length=max_query_len)(query)
     query_encode = Flatten()(query_embed)
     merged = concatenate([encoded_sound, query_encode])
-    linear_regression = Dense(512)(merged)
+    linear_regression = Dense(256)(merged)
     y_pred = Dense(
         1, name="y_pred", kernel_initializer=init, bias_initializer=init, activation="softmax"
     )(linear_regression)

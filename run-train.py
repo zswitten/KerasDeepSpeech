@@ -137,7 +137,7 @@ def main(args):
         print(model.summary(line_length=80))
 
         #required to save the JSON
-        save_model(model, output_dir)
+        # save_model(model, output_dir)
 
     if (args.opt.lower() == 'sgd'):
         opt = SGD(lr=args.learning_rate, decay=1e-6, momentum=0.9, nesterov=True, clipnorm=5)
