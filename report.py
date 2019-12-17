@@ -11,7 +11,7 @@ import keras.backend as K
 from utils import save_model, int_to_text_sequence
 
 class ReportCallback(callbacks.Callback):
-    def __init__(self, test_func, validdata, model, runtimestr, save):
+    def __init__(self, test_func, validdata, model, runtimestr, save, is_binary=False):
         self.test_func = test_func
 
         self.validdata = validdata
@@ -38,6 +38,7 @@ class ReportCallback(callbacks.Callback):
         self.earlystopping = True
         self.shuffle_epoch_end = True
         self.force_output = False
+        self.is_binary = is_binary
 
     def validate_epoch_end(self, verbose=0):
 
@@ -54,7 +55,10 @@ class ReportCallback(callbacks.Callback):
         for c in range(0, allvalid):
 
             word_batch = next(self.validdata_next_val)[0]
-            decoded_res = decode_batch(self.test_func,
+            if self.is_binary:
+                decoded_res = decode_batch(self.test_func, , self.batch_size)
+            else:
+                decoded_res = decode_batch(self.test_func,
                                        word_batch['the_input'][0:self.batch_size],
                                        self.batch_size)
 
