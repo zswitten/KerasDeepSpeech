@@ -269,8 +269,9 @@ class BinaryBatchGenerator(object):
         max_query_len = 30
         queries = np.array([get_intseq(query, max_query_len) for query in queries_words])
 
-
         source_str = np.array([l for l in batch_y_trans])
+        if queries.shape != (self.batch_size, 30):
+            import pdb; pdb.set_trace()
         inputs = {
             'the_input': X_data,
             'query_words': queries_words,
