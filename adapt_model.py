@@ -18,7 +18,7 @@ def adapt_model(kds_model, input_dim=26, max_query_len=30, embedding_dim=32, max
     fc3 = kds_model.get_layer('time_distributed_3')(fc2)
     birnn = kds_model.get_layer('bidirectional_1')(fc3)
     char_preds = kds_model.get_layer('out')(birnn)  # Maybe should be get_layer('ypred')?
-    pool = GlobalMaxPooling1D()(char_preds)
+    pool = Flatten()(char_preds)
 
     query = Input(shape=(max_query_len,), name='query')
     query_embed = Embedding(input_dim=len(char_map), output_dim=embedding_dim, input_length=max_query_len)(query)
