@@ -37,7 +37,7 @@ def main(args):
     '''
 
     print("Getting data from arguments")
-    test_dataprops, df_test = combine_all_wavs_and_trans_from_csvs(args.test_files, sortagrad=False)
+    df_test = combine_all_wavs_and_trans_from_csvs(args.test_files, sortagrad=False)
 
 
     # check any special data model requirments e.g. a spectrogram
@@ -54,7 +54,7 @@ def main(args):
 
     ## 2. init data generators
     print("Creating data batch generators")
-    testdata = BatchGenerator(dataframe=df_test, dataproperties=test_dataprops,
+    testdata = BatchGenerator(dataframe=df_test,
                                training=False, batch_size=1, model_input_type=model_input_type)
 
 
@@ -148,8 +148,6 @@ if __name__ == '__main__':
 
         #args.test_files = timit_path + "timit_test.csv"
         args.test_files = own_path + "enron_test.csv"
-
-    assert (keras.__version__ == "2.0.4")  ## CoreML is strict
 
     print(args)
 
