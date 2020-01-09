@@ -1,4 +1,5 @@
 import numpy as np
+import random
 from numpy.lib.stride_tricks import as_strided
 from sklearn.utils import shuffle
 
@@ -14,7 +15,7 @@ from numpy import vstack, zeros, diff
 
 from keras.preprocessing.sequence import pad_sequences
 
-from utils import text_to_int_sequence
+from utils import text_to_int_sequence, words_list
 
 # Data batch generator, responsible for providing the data to fit_generator
 
@@ -184,7 +185,7 @@ class BatchGenerator(object):
         return
 
 class BinaryBatchGenerator(object):
-    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000):
+    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000, random_words=True, real_negatives=False, negative_ratio=0.5):
         self.training_data = training
         self.model_input_type = model_input_type ##mfcc, mfcc-aubio, spectrogram, spectrogram-img
         self.df = dataframe.copy()
@@ -204,6 +205,9 @@ class BinaryBatchGenerator(object):
 
         self.set_of_all_int_outputs_used = None
         self.maxlen = max_audio_len
+        self.random_words = random_words
+        self.real_negatives = real_negatives
+        self.negative_ratio = negative_ratio
 
         #Free up memory of unneeded data
         del dataframe
@@ -262,7 +266,7 @@ class BinaryBatchGenerator(object):
             assert (X_data.shape == (self.batch_size, max_val, 26))
         # print("1. X_data shape:", X_data.shape)
         # print("1. X_data:", X_data)
-        queries_words = [choose_query(transcript) for transcript in batch_y_trans]
+        queries_words = [choose_query(transcript, random_words=self.random_words, real_negatives=self.real_negatives, negative_ratio=self.negative_ratio) for transcript in batch_y_trans]
         labels = np.array([
             query in transcript for query, transcript in zip(queries_words, batch_y_trans)
         ])
@@ -334,17 +338,24 @@ class BinaryBatchGenerator(object):
 
         return
 
-def choose_query(transcript, min_words=1, max_words=3, negative_ratio=0.5):
+def choose_query(transcript, min_words=1, max_words=3, negative_ratio=0.5, random_words=True, real_negatives=False):
     words = transcript.split()
     num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
-    first_word = np.random.randint(len(words) - num_words + 1)
+    if random_words:
+        first_word = np.random.randint(len(words) - num_words + 1)
+    else:
+        first_word = 0
     query_in = ' '.join(words[first_word:first_word + num_words])
-    if np.random.random() < negative_ratio:
+    if np.random.random() > negative_ratio:
         return query_in
     else:
-        query_out = list(query_in)
-        np.random.shuffle(query_out)
-        return ''.join(query_out)
+        if not real_negatives:
+            query_out = list(query_in)
+            np.random.shuffle(query_out)
+            return ''.join(query_out)
+        else:
+            query_out = [random.choice(words_list) for i in range(num_words)]
+            return ' '.join(query_out)
 
 def get_normalise(self, k_samples=100):
     # todo use normalise from DS2 - https://github.com/baidu-research/ba-dls-deepspeech
@@ -371,7 +382,7 @@ def get_intseq(trans, max_intseq_length=80):
     while (len(t) < max_intseq_length):
         t.append(27)  # replace with a space char to pad
     # print(t)
-    return t
+    return t[:max_intseq_length]
 
 def get_max_time(filename):
     fs, audio = wav.read(filename)

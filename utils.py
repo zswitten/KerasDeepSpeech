@@ -167,3 +167,6 @@ class MemoryCallback(keras.callbacks.Callback):
 
     #########################################################
 
+with open('words.txt', 'r') as f:
+    lines = f.readlines()
+    words_list = [l.strip() for l in lines]
