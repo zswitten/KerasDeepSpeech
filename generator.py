@@ -185,7 +185,7 @@ class BatchGenerator(object):
         return
 
 class BinaryBatchGenerator(object):
-    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000, random_words=True, real_negatives=False, negative_ratio=0.5):
+    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000, random_words=True, real_negatives=False, negative_ratio=0.5, randomize_audio=False):
         self.training_data = training
         self.model_input_type = model_input_type ##mfcc, mfcc-aubio, spectrogram, spectrogram-img
         self.df = dataframe.copy()
@@ -208,6 +208,7 @@ class BinaryBatchGenerator(object):
         self.random_words = random_words
         self.real_negatives = real_negatives
         self.negative_ratio = negative_ratio
+        self.randomize_audio = randomize_audio
 
         #Free up memory of unneeded data
         del dataframe
@@ -266,6 +267,8 @@ class BinaryBatchGenerator(object):
             assert (X_data.shape == (self.batch_size, max_val, 26))
         # print("1. X_data shape:", X_data.shape)
         # print("1. X_data:", X_data)
+        if self.randomize_audio:
+            X_data = np.random.rand(*X_data.shape)
         queries_words = [choose_query(transcript, random_words=self.random_words, real_negatives=self.real_negatives, negative_ratio=self.negative_ratio) for transcript in batch_y_trans]
         labels = np.array([
             query in transcript for query, transcript in zip(queries_words, batch_y_trans)
