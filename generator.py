@@ -372,7 +372,7 @@ class TranscriptGenerator(object):
         self.df = None
         del self.df
         self.cur_index = 0
-        self.shuffling = False
+        self.shuffling = True
 
     def get_batch(self, idx):
         batch_y_trans = self.transcript[idx * self.batch_size:(idx + 1) * self.batch_size]
@@ -439,6 +439,9 @@ class TranscriptGenerator(object):
             while query in transcript_:
                 query = get_query(transcript)
         return query
+
+    def genshuffle(self):
+        self.transcript = shuffle(self.transcript)
 
 def get_normalise(self, k_samples=100):
     # todo use normalise from DS2 - https://github.com/baidu-research/ba-dls-deepspeech
