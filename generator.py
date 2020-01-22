@@ -361,6 +361,85 @@ class BinaryBatchGenerator(object):
                 query = get_query(transcript)
         return query
 
+class TranscriptGenerator(object):
+    def __init__(self, dataframe, batch_size=16):
+        self.df = dataframe.copy()
+        self.transcript = self.df['transcript'].tolist()
+        self.batch_size = batch_size
+        self.max_query_len = 30
+        self.max_trans_len = 100
+        del dataframe
+        self.df = None
+        del self.df
+        self.cur_index = 0
+        self.shuffling = False
+
+    def get_batch(self, idx):
+        batch_y_trans = self.transcript[idx * self.batch_size:(idx + 1) * self.batch_size]
+        queries = [self.choose_query(transcript) for transcript in batch_y_trans]
+        x_query = np.array([get_intseq(query, self.max_query_len) for query in queries])
+        x_trans = np.array([get_intseq(trans, self.max_trans_len) for trans in batch_y_trans])
+        x = np.array([np.concatenate((x_query[i], x_trans[i])) for i in range(len(x_query))])
+        y = np.array([
+            query in transcript for query, transcript in zip(queries, batch_y_trans)
+        ])
+        source_str = np.array([l for l in batch_y_trans])
+        inputs = {
+            'x_input': x,
+            'query': queries,
+            'transcript': source_str
+        }
+        outputs = {'y': y}
+        return (inputs, outputs)
+
+    def next_batch(self):
+        while 1:
+            assert (self.batch_size <= len(self.transcript))
+
+            if (self.cur_index + 1) * self.batch_size >= len(self.transcript) - self.batch_size:
+
+                self.cur_index = 0
+
+                if(self.shuffling==True):
+                    print("SHUFFLING as reached end of data")
+                    self.genshuffle()
+
+            try:
+                ret = self.get_batch(self.cur_index)
+            except:
+                print("data error - this shouldn't happen - try next batch")
+                self.cur_index += 1
+                ret = self.get_batch(self.cur_index)
+
+            self.cur_index += 1
+
+            yield ret
+
+    def choose_query(self, transcript_, min_words=1, max_words=3, negative_ratio=0.5):
+        if np.random.random() > negative_ratio:
+            transcript = transcript_
+            must_exclude = False
+        else:
+            transcript_new = self.transcript[np.random.randint(len(self.transcript))]
+            while transcript_new == transcript_:
+                transcript_new = self.transcript[np.random.randint(len(self.transcript))]
+            must_exclude = True
+            transcript = transcript_new
+        def get_query(transcript): 
+            words = transcript.split()
+            # import pdb; pdb.set_trace()
+            # num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
+            # first_word = np.random.randint(len(words) - num_words + 1)
+            num_words = 2
+            first_word = 3
+            query = ' '.join(words[first_word:first_word + num_words])
+            return query
+        query = get_query(transcript)
+        if must_exclude:
+            while query in transcript_:
+                query = get_query(transcript)
+        return query
+
 def get_normalise(self, k_samples=100):
     # todo use normalise from DS2 - https://github.com/baidu-research/ba-dls-deepspeech
     """ Estimate the mean and std of the features from the training set

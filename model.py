@@ -28,7 +28,9 @@ from keras.layers.recurrent import SimpleRNN
 from keras.layers import Dense, Activation, Bidirectional, Reshape,Flatten, Lambda, Input,\
     Masking, Convolution1D, BatchNormalization, GRU, Conv1D, RepeatVector, Conv2D
 from keras.optimizers import SGD, adam
-from keras.layers import ZeroPadding1D, Convolution1D, ZeroPadding2D, Convolution2D, MaxPooling2D, GlobalMaxPooling2D
+from keras.layers import ZeroPadding1D, Convolution1D, ZeroPadding2D
+from keras.layers import Convolution2D, MaxPooling2D, GlobalMaxPooling2D
+from keras.layers import GlobalMaxPooling1D
 from keras.layers import TimeDistributed, Dropout
 from keras.layers.merge import add, concatenate
 from keras.activations import relu
@@ -650,6 +652,27 @@ def build_ds5_no_ctc_and_xfer_weights(loaded_model, input_dim=161, fc_size=1024,
 
     model = Model(inputs=input_data, outputs=y_pred)
 
+    return model
+
+def binary_transcript_classifier():
+    model = Sequential()
+    model.add(Embedding(len(char_map), 1, input_shape=(130,), name='x'))
+    model.add(
+        Conv1D(filters=64, kernel_size=4, padding='same', activation='relu',)
+    )
+    model.add(GlobalMaxPooling1D())
+    model.add(Dense(128, activation='relu', name='fc1'))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(1, activation='softmax', name='y'))
+    model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+def binary_transcript_classifier():
+    model = Sequential()
+    model.add(Dense(128, activation='relu', name='x', input_shape=(130,)))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(1, activation='softmax', name='y'))
+    model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
 def binary_classifier(
