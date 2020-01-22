@@ -185,7 +185,7 @@ class BatchGenerator(object):
         return
 
 class BinaryBatchGenerator(object):
-    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000, random_words=True, real_negatives=False, negative_ratio=0.5, randomize_audio=False):
+    def __init__(self, dataframe, training, batch_size=16, model_input_type="mfcc", max_audio_len=1000, negative_ratio=0.5, randomize_audio=False):
         self.training_data = training
         self.model_input_type = model_input_type ##mfcc, mfcc-aubio, spectrogram, spectrogram-img
         self.df = dataframe.copy()
@@ -205,8 +205,6 @@ class BinaryBatchGenerator(object):
 
         self.set_of_all_int_outputs_used = None
         self.maxlen = max_audio_len
-        self.random_words = random_words
-        self.real_negatives = real_negatives
         self.negative_ratio = negative_ratio
         self.randomize_audio = randomize_audio
 
@@ -269,7 +267,7 @@ class BinaryBatchGenerator(object):
         # print("1. X_data:", X_data)
         if self.randomize_audio:
             X_data = np.random.rand(*X_data.shape)
-        queries_words = [choose_query(transcript, random_words=self.random_words, real_negatives=self.real_negatives, negative_ratio=self.negative_ratio) for transcript in batch_y_trans]
+        queries_words = [self.choose_query(transcript, negative_ratio=self.negative_ratio) for transcript in batch_y_trans]
         labels = np.array([
             query in transcript for query, transcript in zip(queries_words, batch_y_trans)
         ])
@@ -341,24 +339,27 @@ class BinaryBatchGenerator(object):
 
         return
 
-def choose_query(transcript, min_words=1, max_words=3, negative_ratio=0.5, random_words=True, real_negatives=False):
-    words = transcript.split()
-    num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
-    if random_words:
-        first_word = np.random.randint(len(words) - num_words + 1)
-    else:
-        first_word = 0
-    query_in = ' '.join(words[first_word:first_word + num_words])
-    if np.random.random() > negative_ratio:
-        return query_in
-    else:
-        if not real_negatives:
-            query_out = list(query_in)
-            np.random.shuffle(query_out)
-            return ''.join(query_out)
+    def choose_query(self, transcript_, min_words=1, max_words=3, negative_ratio=0.5):
+        if np.random.random() > negative_ratio:
+            transcript = transcript_
+            must_exclude = False
         else:
-            query_out = [random.choice(words_list) for i in range(num_words)]
-            return ' '.join(query_out)
+            transcript_new = self.transcript[np.random.randint(len(self.transcript))]
+            while transcript_new == transcript_:
+                transcript_new = self.transcript[np.random.randint(len(self.transcript))]
+            must_exclude = True
+            transcript = transcript_new
+        def get_query(transcript): 
+            words = transcript.split()
+            num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
+            first_word = np.random.randint(len(words) - num_words + 1)
+            query = ' '.join(words[first_word:first_word + num_words])
+            return query
+        query = get_query(transcript)
+        if must_exclude:
+            while query in transcript_:
+                query = get_query(transcript)
+        return query
 
 def get_normalise(self, k_samples=100):
     # todo use normalise from DS2 - https://github.com/baidu-research/ba-dls-deepspeech
