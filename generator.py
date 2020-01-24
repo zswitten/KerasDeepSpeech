@@ -379,6 +379,9 @@ class TranscriptGenerator(object):
         queries = [self.choose_query(transcript) for transcript in batch_y_trans]
         x_query = np.array([get_intseq(query, self.max_query_len) for query in queries])
         x_trans = np.array([get_intseq(trans, self.max_trans_len) for trans in batch_y_trans])
+        for i in range(len(x_trans)):
+            if np.random.random() < 0.5:
+                x_trans[i] = np.random.choice(range(20))
         x = np.array([np.concatenate((x_query[i], x_trans[i])) for i in range(len(x_query))])
         y = np.array([
             query in transcript for query, transcript in zip(queries, batch_y_trans)
@@ -412,32 +415,33 @@ class TranscriptGenerator(object):
                 ret = self.get_batch(self.cur_index)
 
             self.cur_index += 1
-
             yield ret
 
     def choose_query(self, transcript_, min_words=1, max_words=3, negative_ratio=0.5):
         if np.random.random() > negative_ratio:
             transcript = transcript_
-            must_exclude = False
         else:
             transcript_new = self.transcript[np.random.randint(len(self.transcript))]
             while transcript_new == transcript_:
                 transcript_new = self.transcript[np.random.randint(len(self.transcript))]
-            must_exclude = True
             transcript = transcript_new
+
         def get_query(transcript): 
             words = transcript.split()
-            # import pdb; pdb.set_trace()
-            # num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
-            # first_word = np.random.randint(len(words) - num_words + 1)
+            num_words = np.random.randint(min_words, min(max_words, len(words)) + 1)
+            first_word = np.random.randint(len(words) - num_words + 1)
             num_words = 2
-            first_word = 3
+            first_word = 0
             query = ' '.join(words[first_word:first_word + num_words])
             return query
+            # num_words = 1
+            # first_word = 0
+            # try:
+            #     query = ' '.join(words[first_word:first_word + num_words])
+            #     return query
+            # except:
+            #     return 'dummy query'
         query = get_query(transcript)
-        if must_exclude:
-            while query in transcript_:
-                query = get_query(transcript)
         return query
 
     def genshuffle(self):

@@ -656,24 +656,24 @@ def build_ds5_no_ctc_and_xfer_weights(loaded_model, input_dim=161, fc_size=1024,
 
 def binary_transcript_classifier():
     model = Sequential()
-    model.add(Embedding(len(char_map), 1, input_shape=(130,), name='x'))
+    model.add(Embedding(len(char_map), 20, input_shape=(130,), name='x'))
     model.add(
-        Conv1D(filters=64, kernel_size=4, padding='same', activation='relu',)
+        Conv1D(filters=128, kernel_size=7, padding='same', activation='relu',)
     )
     model.add(GlobalMaxPooling1D())
-    model.add(Dense(128, activation='relu', name='fc1'))
-    model.add(Dense(128, activation='relu'))
-    model.add(Dense(1, activation='softmax', name='y'))
+    model.add(Dense(256, activation='relu', name='fc1'))
+    model.add(Dense(256, activation='relu'))
+    model.add(Dense(1, activation='sigmoid', name='y'))
     model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
     return model
 
-def binary_transcript_classifier():
-    model = Sequential()
-    model.add(Dense(128, activation='relu', name='x', input_shape=(130,)))
-    model.add(Dense(128, activation='relu'))
-    model.add(Dense(1, activation='softmax', name='y'))
-    model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
+# def binary_transcript_classifier():
+#     model = Sequential()
+#     model.add(Dense(128, activation='relu', name='x', input_shape=(130,)))
+#     model.add(Dense(128, activation='relu'))
+#     model.add(Dense(1, activation='sigmoid', name='y'))
+#     model.compile(optimizer='rmsprop', loss='binary_crossentropy', metrics=['accuracy'])
+#     return model
 
 def binary_classifier(
         input_dim=26, max_query_len=30, embedding_dim=16, fc_size=1024, rnn_size=512,
