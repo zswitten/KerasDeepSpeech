@@ -27,7 +27,9 @@ def adapt_model(kds_model, input_dim=26, max_query_len=30, embedding_dim=32, max
     query_encode = Flatten()(query_embed)
 
     merged = concatenate([query_encode, pool])
-    linear_regression = Dense(64)(merged)
+    conv1 = Conv1D(filters=256, kernel_size=7, padding='same', activation='relu')(merged)
+    max_pool1 = GlobalMaxPooling1D()(conv1)
+    linear_regression = Dense(256)(max_pool1)
     y_pred = Dense(1, name="y_pred", activation="sigmoid")(linear_regression)
     model = Model(inputs=[input_data, query], outputs=y_pred)
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
